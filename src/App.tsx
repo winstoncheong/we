@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import CodeMirrorEditor from './editor/CodeMirrorEditor';
 import { languageLabel } from './editor/languages';
 import FileTreePane from './components/FileTreePane';
-import { demoPaths, isTauri, listFilesRecursive, pickFolder, readFile, writeFile } from './fs';
+import { backendLabel, demoPaths, isTauri, listFilesRecursive, pickFolder, readFile, supportsBrowserFS, writeFile } from './fs';
 
 type PaletteMode = 'files' | 'commands';
 
@@ -65,8 +65,8 @@ export default function App() {
   }, [active, contents, root]);
 
   const openFolder = useCallback(async () => {
-    if (!isTauri()) {
-      setStatus('browser mode: Tauri folder picker needs `npm run tauri dev`');
+    if (!isTauri() && !supportsBrowserFS()) {
+      setStatus('browser lacks File System Access API — use Chrome/Edge or `npm run tauri dev`');
       return;
     }
     const dir = await pickFolder();
@@ -237,7 +237,7 @@ export default function App() {
         <span>{active || '—'}</span>
         <span>{active ? languageLabel(active) : ''}</span>
         <span>{vim ? '-- NORMAL-ish (F1 for vim help in editor) --' : 'vim off'}</span>
-        <span>{dirty.size > 0 ? `${dirty.size} unsaved` : status || (isTauri() ? 'tauri' : 'browser demo')}</span>
+        <span>{dirty.size > 0 ? `${dirty.size} unsaved` : status || backendLabel()}</span>
       </footer>
 
       {palette && (
