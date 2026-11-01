@@ -3,6 +3,7 @@ mod git;
 mod routes;
 mod state;
 mod views;
+mod watcher;
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -49,6 +50,7 @@ async fn main() -> anyhow::Result<()> {
     }
 
     let app = Arc::new(App::new(root, dev, random_token()));
+    watcher::spawn(app.root.clone(), app.fs.clone());
     let assets = std::env::var("WE_ASSETS").unwrap_or_else(|_| "web/dist".to_string());
     let listener = tokio::net::TcpListener::bind(("127.0.0.1", port))
         .await

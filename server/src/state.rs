@@ -2,6 +2,8 @@ use std::collections::BTreeSet;
 use std::path::PathBuf;
 use std::sync::RwLock;
 
+use tokio::sync::broadcast;
+
 pub struct App {
     pub root: PathBuf,
     pub root_name: String,
@@ -11,6 +13,8 @@ pub struct App {
     pub is_repo: bool,
     pub dev: bool,
     pub session: RwLock<Session>,
+    /// Filesystem change notifications fanned out to `/events` subscribers.
+    pub fs: broadcast::Sender<String>,
 }
 
 #[derive(Default)]
@@ -61,6 +65,7 @@ impl App {
             .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_else(|| root.to_string_lossy().to_string());
         let is_repo = root.join(".git").exists();
+        let (fs, _) = broadcast::channel(64);
         Self {
             root,
             root_name,
@@ -68,6 +73,7 @@ impl App {
             is_repo,
             dev,
             session: RwLock::new(Session::default()),
+            fs,
         }
     }
 }

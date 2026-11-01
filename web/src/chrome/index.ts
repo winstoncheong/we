@@ -8,6 +8,7 @@ import './chrome.css';
 
 import { closePalette, isPaletteOpen, openPalette } from './palette';
 import { applySidebar, readSidebar, toggleSidebar } from './sidebar';
+import { setupWatch } from './watch';
 
 const ICONS = {
   // Two states of the same control: a panel with a divider, and a panel with a
@@ -27,6 +28,7 @@ export function setupChrome() {
   installTitlebar();
   applySidebar(readSidebar());
   installShortcuts();
+  setupWatch();
 
   document.addEventListener('click', (event) => {
     const target = event.target as HTMLElement | null;
