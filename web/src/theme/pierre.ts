@@ -7,7 +7,6 @@
 import pierreDark from '@pierre/theme/pierre-dark';
 import pierreLight from '@pierre/theme/pierre-light';
 import { normalizeThemeColors } from '@pierre/theming/color';
-import { themeToTreeStyles } from '@pierre/trees';
 
 export type ThemeName = 'pierre-dark' | 'pierre-light';
 
@@ -24,8 +23,6 @@ export type AppTheme = {
   colors: Record<string, string>;
   /** CSS custom properties consumed by index.css. */
   vars: Record<string, string>;
-  /** Inline styles for the Pierre file tree host element. */
-  treeStyles: Record<string, string>;
   tokenColors: readonly TokenRule[];
 };
 
@@ -78,21 +75,12 @@ function build(name: ThemeName): AppTheme {
     '--warn': pick(colors, ['terminal.ansiYellow', 'gitDecoration.modifiedResourceForeground'], '#ffca00'),
   };
 
-  const treeStyles = themeToTreeStyles({
-    name: source.name,
-    type: source.type,
-    bg,
-    fg,
-    colors,
-  });
-
   return {
     name,
     label: source.displayName,
     scheme: source.type,
     colors,
     vars,
-    treeStyles,
     tokenColors: source.tokenColors as readonly TokenRule[],
   };
 }

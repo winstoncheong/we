@@ -10,8 +10,12 @@ import { closePalette, isPaletteOpen, openPalette } from './palette';
 import { applySidebar, readSidebar, toggleSidebar } from './sidebar';
 
 const ICONS = {
-  sidebar:
-    '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.75" y="2.75" width="12.5" height="10.5" rx="2.25"/><path d="M6 2.75v10.5"/></svg>',
+  // Two states of the same control: a panel with a divider, and a panel with a
+  // caret pointing into the content ("bring it back").
+  sidebarOpen:
+    '<svg class="icon-sidebar-open" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.75" y="2.75" width="12.5" height="10.5" rx="2.25"/><path d="M6 2.75v10.5"/></svg>',
+  sidebarShow:
+    '<svg class="icon-sidebar-show" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.75" y="2.75" width="12.5" height="10.5" rx="2.25"/><path d="m4.4 5.9 2.1 2.1-2.1 2.1"/></svg>',
   search:
     '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.25"/><path d="m10.25 10.25 3 3"/></svg>',
 };
@@ -47,28 +51,36 @@ function installTitlebar() {
 
   const toggle = document.createElement('button');
   toggle.type = 'button';
-  toggle.className = 'btn ghost sm chrome-btn';
+  toggle.className = 'btn sm chrome-btn';
   toggle.dataset.sidebarToggle = 'true';
   toggle.setAttribute('aria-controls', 'sidebar');
   toggle.setAttribute('aria-expanded', 'true');
   toggle.title = 'Hide sidebar (Ctrl B)';
-  toggle.innerHTML = `<span class="chrome-icon">${ICONS.sidebar}</span>`;
+  toggle.setAttribute('aria-label', 'Hide sidebar');
+  toggle.innerHTML = `<span class="chrome-icon">${ICONS.sidebarOpen}${ICONS.sidebarShow}</span>`;
 
   const brand = titlebar.querySelector('.brand');
   if (brand?.nextSibling) titlebar.insertBefore(toggle, brand.nextSibling);
   else titlebar.prepend(toggle);
 
-  // A visible palette affordance, so the shortcut is discoverable.
+  // A visible palette affordance, centered in the bar, so the shortcut is
+  // discoverable without a keyboard.
   const search = document.createElement('button');
   search.type = 'button';
-  search.className = 'btn ghost sm chrome-search';
+  search.className = 'btn chrome-search';
   search.dataset.paletteOpen = 'files';
-  search.title = 'Quick open (Ctrl P) · commands (Ctrl Shift P)';
-  search.innerHTML = `<span class="chrome-icon">${ICONS.search}</span><span class="chrome-search-label">Search</span><kbd>Ctrl P</kbd>`;
+  search.title = 'Search files (Ctrl P) · commands (Ctrl Shift P)';
+  search.innerHTML = `<span class="chrome-icon">${ICONS.search}</span><span class="chrome-search-label">Search files</span><kbd>Ctrl P</kbd>`;
 
   const themeToggle = titlebar.querySelector('#theme-toggle');
-  if (themeToggle) titlebar.insertBefore(search, themeToggle);
-  else titlebar.append(search);
+  if (themeToggle) {
+    const tail = document.createElement('div');
+    tail.className = 'spacer';
+    titlebar.insertBefore(tail, themeToggle);
+    titlebar.insertBefore(search, tail);
+  } else {
+    titlebar.append(search);
+  }
 }
 
 function installShortcuts() {

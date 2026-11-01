@@ -30,8 +30,7 @@ export function applySidebar(state: SidebarState) {
   for (const button of document.querySelectorAll<HTMLElement>('[data-sidebar-toggle]')) {
     button.setAttribute('aria-expanded', String(!collapsed));
     button.title = collapsed ? 'Show sidebar (Ctrl B)' : 'Hide sidebar (Ctrl B)';
-    const icon = button.querySelector<HTMLElement>('.chrome-icon');
-    if (icon) icon.textContent = collapsed ? '▏' : '▤';
+    button.setAttribute('aria-label', collapsed ? 'Show sidebar' : 'Hide sidebar');
   }
 }
 

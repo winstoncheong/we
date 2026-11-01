@@ -144,7 +144,6 @@ async fn fragment_tree(State(app): State<Arc<App>>, Query(query): Query<DirQuery
         Ok(entries) => render(&Tree {
             view: View {
                 entries,
-                dir: query.dir,
                 ..view
             },
         }),

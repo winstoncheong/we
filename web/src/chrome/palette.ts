@@ -116,7 +116,7 @@ function syncActive(scroll = true) {
   const row = rows[activeIndex];
   row?.scrollIntoView({ block: 'nearest' });
   const input = host?.querySelector<HTMLInputElement>('#palette-input');
-  if (row && input) input.setAttribute('aria-activedescendant', row.id || '');
+  if (row?.id && input) input.setAttribute('aria-activedescendant', row.id);
 }
 
 function activate(row: HTMLElement) {

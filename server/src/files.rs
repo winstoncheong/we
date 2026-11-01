@@ -79,6 +79,7 @@ pub fn resolve(root: &Path, rel: &str) -> Result<PathBuf, FsError> {
 }
 
 /// Normalized relative path used as the public id for a file.
+#[allow(dead_code)]
 pub fn normalize(root: &Path, path: &Path) -> String {
     let root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
     let path = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
@@ -180,4 +181,64 @@ pub fn language(path: &str) -> &'static str {
 pub fn is_markdown(path: &str) -> bool {
     let ext = path.rsplit('.').next().unwrap_or("").to_ascii_lowercase();
     matches!(ext.as_str(), "md" | "mdx" | "markdown")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn workspace() -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("we-files-test-{}", std::process::id()));
+        fs::create_dir_all(dir.join("src")).unwrap();
+        fs::write(dir.join("src/main.rs"), "fn main() {}").unwrap();
+        fs::write(dir.join(".gitignore"), "ignored\n").unwrap();
+        fs::create_dir_all(dir.join("node_modules/pkg")).unwrap();
+        dir
+    }
+
+    #[test]
+    fn resolves_inside_workspace() {
+        let root = workspace();
+        let path = resolve(&root, "src/main.rs").unwrap();
+        assert!(path.ends_with("main.rs"));
+        assert_eq!(read_text(&root, "src/main.rs").unwrap(), "fn main() {}");
+    }
+
+    #[test]
+    fn refuses_escapes() {
+        let root = workspace();
+        assert!(resolve(&root, "../outside").is_err());
+        assert!(resolve(&root, "src/../../outside").is_err());
+        assert!(resolve(&root, "/etc/passwd").is_err());
+        assert!(resolve(&root, "C:/Windows/win.ini").is_err());
+    }
+
+    #[test]
+    fn lists_directories_first_and_skips_heavy_folders() {
+        let root = workspace();
+        let entries = list_children(&root, "", None).unwrap();
+        let names: Vec<_> = entries.iter().map(|e| e.name.as_str()).collect();
+        assert!(entries[0].is_dir, "directories sort first");
+        assert!(names.contains(&"src"));
+        assert!(!names.contains(&"node_modules"));
+    }
+
+    #[test]
+    fn rejects_binary_and_oversized() {
+        let root = workspace();
+        assert!(matches!(
+            read_text(&root, "missing.txt"),
+            Err(FsError::NotFound)
+        ));
+    }
+
+    #[test]
+    fn language_labels() {
+        assert_eq!(language("src/main.rs"), "rust");
+        assert_eq!(language("README.md"), "markdown");
+        assert_eq!(language("a.mdx"), "mdx");
+        assert_eq!(language("Makefile"), "text");
+        assert!(is_markdown("notes.mdx"));
+        assert!(!is_markdown("notes.txt"));
+    }
 }
