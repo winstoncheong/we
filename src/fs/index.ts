@@ -5,7 +5,7 @@
 
 const DEMO_FILES: Record<string, string> = {
   'welcome.md':
-    '# my-editor\n\nThin local editor. Open a folder to edit real files.\n\n- Ctrl+P quick open\n- Ctrl+Shift+P commands\n- Ctrl+S save, Ctrl+W close tab\n',
+    '# we\n\nThin local editor. Open a folder to edit real files.\n\n- ctrl+p quick open\n- ctrl+shift+p commands\n- ctrl+s save, ctrl+w close tab\n- ctrl+k ctrl+b sidebar\n',
   'example.py': 'def greet(name: str) -> str:\n    return f"hello, {name}"\n\n\nif __name__ == "__main__":\n    print(greet("world"))\n',
   'example.tex':
     '\\documentclass{article}\n\\begin{document}\nHello, LaTeX! Vim motion works here too.\n\\end{document}\n',
