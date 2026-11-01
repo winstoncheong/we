@@ -43,14 +43,7 @@ export function runCommand(id: string) {
  * Re-dispatch the same chord so "Save all" and the shortcut take one path.
  */
 function saveAll() {
-  window.dispatchEvent(
-    new KeyboardEvent('keydown', {
-      key: 's',
-      ctrlKey: true,
-      bubbles: true,
-      cancelable: true,
-    }),
-  );
+  document.dispatchEvent(new CustomEvent('we:save-all'));
 }
 
 export function closeActiveTab() {

@@ -82,6 +82,8 @@ export function EditorIsland() {
   let dirty = false;
   let currentPath = '';
   let wantPreview = previewWanted();
+  // Text each buffer was loaded/saved with; save-all writes only real changes.
+  const originals = new Map<string, string>();
 
   const appTheme = () =>
     getTheme(currentTheme() === 'dark' ? 'pierre-dark' : 'pierre-light');
@@ -117,6 +119,7 @@ export function EditorIsland() {
     if (response.ok) {
       dirty = false;
       window.clearTimeout(dirtyTimer);
+      originals.set(currentPath, body);
       // Let the tabs/status swap land before flashing, or the OOB status
       // replacement wipes the message immediately.
       await postDirty(currentPath, false);
@@ -124,6 +127,36 @@ export function EditorIsland() {
     } else {
       flash('save failed');
     }
+  };
+
+  /** Save every open buffer whose text differs from what we loaded/saved. */
+  const saveAll = async () => {
+    if (!editor) return;
+    const changed = editor
+      .snapshot()
+      .filter((buffer) => originals.get(buffer.path) !== buffer.text);
+    if (changed.length === 0) {
+      flash('nothing to save');
+      return;
+    }
+    let saved = 0;
+    for (const buffer of changed) {
+      const response = await fetch(`/api/file?path=${encodeURIComponent(buffer.path)}`, {
+        method: 'PUT',
+        headers: { 'X-We-Token': token() },
+        body: buffer.text,
+      });
+      if (response.ok) {
+        originals.set(buffer.path, buffer.text);
+        saved += 1;
+        await postDirty(buffer.path, false);
+      }
+    }
+    if (changed.some((buffer) => buffer.path === currentPath)) {
+      dirty = false;
+      window.clearTimeout(dirtyTimer);
+    }
+    flash(saved === changed.length ? `saved ${saved}` : `saved ${saved}/${changed.length}`);
   };
 
   /** Sync the split, the toggle chip and the preview to the active buffer. */
@@ -179,6 +212,7 @@ export function EditorIsland() {
     const text = await response.text();
     currentPath = path;
     dirty = false;
+    originals.set(path, text);
     window.clearTimeout(dirtyTimer);
     editor.open(path, text);
     document.getElementById('editor')?.setAttribute('data-path', path);
@@ -253,9 +287,14 @@ export function EditorIsland() {
       editor?.focus();
     };
 
+    const onSave = () => void save();
+    const onSaveAll = () => void saveAll();
+
     document.addEventListener('we:open', onOpen);
     document.addEventListener('we:theme', onTheme);
     document.addEventListener('we:preview-toggle', onPreviewToggle);
+    document.addEventListener('we:save', onSave);
+    document.addEventListener('we:save-all', onSaveAll);
     window.addEventListener('keydown', onKey);
     window.addEventListener('keydown', onPreviewKey, true);
     window.addEventListener('beforeunload', flushDirty);
@@ -264,6 +303,8 @@ export function EditorIsland() {
       document.removeEventListener('we:open', onOpen);
       document.removeEventListener('we:theme', onTheme);
       document.removeEventListener('we:preview-toggle', onPreviewToggle);
+      document.removeEventListener('we:save', onSave);
+      document.removeEventListener('we:save-all', onSaveAll);
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('keydown', onPreviewKey, true);
       window.removeEventListener('beforeunload', flushDirty);

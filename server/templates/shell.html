@@ -2,6 +2,7 @@
 <html lang="en" class="dark" data-theme="dark">
   <head>
     <meta charset="utf-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="we-token" content="{{ view.token }}" />
     <title>we{% if view.has_active %} — {{ view.active_name }}{% endif %}</title>
@@ -28,7 +29,31 @@
           <span class="brand-repo">{{ view.root_name }}</span>
           {% if view.is_repo %}<span class="pill">git</span>{% endif %}
         </div>
+        <button
+          class="btn sm chrome-btn"
+          type="button"
+          data-sidebar-toggle="true"
+          aria-controls="sidebar"
+          aria-expanded="true"
+          title="Hide sidebar (Ctrl B)"
+          aria-label="Hide sidebar"
+        >
+          <span class="chrome-icon">
+            <svg class="icon-sidebar-open" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.75" y="2.75" width="12.5" height="10.5" rx="2.25" /><path d="M6 2.75v10.5" /></svg>
+            <svg class="icon-sidebar-show" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.75" y="2.75" width="12.5" height="10.5" rx="2.25" /><path d="m4.4 5.9 2.1 2.1-2.1 2.1" /></svg>
+          </span>
+        </button>
         <div class="spacer"></div>
+        <button
+          class="btn chrome-search"
+          type="button"
+          data-palette-open="files"
+          title="Search files (Ctrl P) · commands (Ctrl Shift P)"
+        >
+          <span class="chrome-icon"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.25" /><path d="m10.25 10.25 3 3" /></svg></span>
+          <span class="chrome-search-label">Search files</span>
+          <kbd>Ctrl P</kbd>
+        </button>
         <button class="btn ghost sm" type="button" id="theme-toggle" title="Toggle theme">
           <span class="theme-icon">◐</span>
         </button>

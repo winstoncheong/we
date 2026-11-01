@@ -45,6 +45,8 @@ export type Editor = {
   view: () => EditorView;
   path: () => string;
   text: () => string;
+  /** Every open buffer with its current text, including the active one. */
+  snapshot: () => Array<{ path: string; text: string }>;
   open: (path: string, doc: string) => void;
   setTheme: (theme: AppTheme) => void;
   setVim: (enabled: boolean) => void;
@@ -117,6 +119,13 @@ export function createEditor(host: HTMLElement, options: Options): Editor {
     view: () => view,
     path: () => currentPath,
     text: () => view.state.doc.toString(),
+    snapshot: () => {
+      states.set(currentPath, view.state);
+      return [...states.entries()].map(([path, state]) => ({
+        path,
+        text: state.doc.toString(),
+      }));
+    },
     open: (path, doc) => {
       states.set(currentPath, view.state);
       const next = states.get(path) ?? makeState(path, doc);

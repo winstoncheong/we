@@ -57,6 +57,8 @@ Fragments:
 | `GET /fragments/tree?dir=` | children of `dir` (lazy `<details>` expansion) |
 | `GET /fragments/tabs` | tab strip |
 | `GET /fragments/status` | status bar |
+| `GET /fragments/palette?mode=files\|commands&q=` | palette shell, or just its results (`results_only=1`) |
+| `GET /events` | SSE stream of `fs` change events from the workspace watcher |
 | `POST /actions/open\|activate\|close` | tabs + OOB status, then a `we:open` event |
 | `POST /actions/dirty` | tabs + OOB status |
 | `GET /api/file?path=` | raw text for the editor island |
@@ -75,6 +77,11 @@ Rules:
 - High-frequency facts (cursor position, vim mode, dirty dot while typing) are
   written directly by the island; structural facts (tabs list, dirty count)
   round-trip through htmx, debounced.
+- The filesystem watcher only refreshes chrome (tree/tabs/status). It never
+  reloads the editor buffer, so unsaved work is never clobbered.
+- Saving is island-owned: `Ctrl+S` saves the active buffer, the command
+  palette's "Save all" dispatches `we:save-all`, and the island writes every
+  buffer whose text differs from what it loaded.
 - No `hx-boost`, no client router.
 
 ## Islands
