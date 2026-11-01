@@ -195,7 +195,7 @@ pub fn router(app: Arc<App>, assets: &str) -> Router {
         .route("/diff", get(diff::page))
         .route("/events", get(events))
         .route("/health", get(health))
-        .nest_service("/assets", tower_http::services::ServeDir::new(assets))
+        .fallback_service(tower_http::services::ServeDir::new(assets))
         .layer(axum::middleware::from_fn_with_state(shared, require_token))
         .with_state(app)
 }

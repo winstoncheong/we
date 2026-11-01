@@ -17,7 +17,7 @@
         } catch (e) {}
       })();
     </script>
-    {% if !view.dev %}<link rel="stylesheet" href="/assets/app.css" />{% endif %}
+    {% if !view.dev %}<link rel="stylesheet" href="/app.css" />{% endif %}
     {% if view.dev %}<script type="module" src="{{ view.vite_url }}/@vite/client"></script>{% endif %}
   </head>
   <body hx-headers='{"X-We-Token":"{{ view.token }}"}'>
@@ -51,7 +51,7 @@
     {% if view.dev %}
     <script type="module" src="{{ view.vite_url }}/src/main.tsx"></script>
     {% else %}
-    <script type="module" src="/assets/app.js"></script>
+    <script type="module" src="/app.js"></script>
     {% endif %}
   </body>
 </html>

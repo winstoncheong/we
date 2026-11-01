@@ -6,7 +6,6 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "postbuild": "node -e \"const fs=require('node:fs');const d='dist/assets';if(fs.existsSync(d))for(const f of fs.readdirSync(d))if(f.startsWith('highlight.worker-'))fs.renameSync(d+'/'+f,'dist/'+f)\"",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

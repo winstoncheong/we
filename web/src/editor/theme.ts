@@ -101,7 +101,10 @@ export function editorTheme(theme: AppTheme): Extension[] {
   const fg = c['editor.foreground'] ?? '#fafafa';
   const dim = c['editorLineNumber.foreground'] ?? '#737373';
   const activeLineNo = c['editorLineNumber.activeForeground'] ?? fg;
-  const activeLine = c['editor.lineHighlightBackground'] ?? 'transparent';
+  // The theme's highlight band reads as a blue wash in the shell; a neutral
+  // 3% tint keeps the current line visible without competing with the chrome.
+  const activeLine =
+    theme.scheme === 'dark' ? 'rgb(255 255 255 / 0.032)' : 'rgb(0 0 0 / 0.032)';
   const selection = c['editor.selectionBackground'] ?? '#009fff4d';
   const matchBg = c['selection.background'] ?? selection;
   const cursor = c['editorCursor.foreground'] ?? '#009fff';
@@ -124,7 +127,7 @@ export function editorTheme(theme: AppTheme): Extension[] {
       },
       '.cm-scroller': {
         fontFamily: MONO_FONT,
-        lineHeight: '21px',
+        lineHeight: '20px',
         fontVariantLigatures: 'none',
       },
       '.cm-content': {
