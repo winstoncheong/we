@@ -59,7 +59,7 @@ function setStatus(role: string, text: string) {
 }
 
 function postDirty(path: string, dirty: boolean) {
-  window.htmx?.ajax('POST', '/actions/dirty', {
+  return window.htmx?.ajax('POST', '/actions/dirty', {
     source: document.body,
     target: '#tabs',
     swap: 'innerHTML',
@@ -101,9 +101,9 @@ export function EditorIsland() {
   };
 
   const flash = (text: string) => {
-    setStatus('dirty', text);
+    setStatus('message', text);
     window.clearTimeout(messageTimer);
-    messageTimer = window.setTimeout(() => setStatus('dirty', ''), 1400);
+    messageTimer = window.setTimeout(() => setStatus('message', ''), 1400);
   };
 
   const save = async () => {
@@ -117,7 +117,9 @@ export function EditorIsland() {
     if (response.ok) {
       dirty = false;
       window.clearTimeout(dirtyTimer);
-      postDirty(currentPath, false);
+      // Let the tabs/status swap land before flashing, or the OOB status
+      // replacement wipes the message immediately.
+      await postDirty(currentPath, false);
       flash('saved');
     } else {
       flash('save failed');

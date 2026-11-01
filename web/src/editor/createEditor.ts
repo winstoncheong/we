@@ -1,5 +1,5 @@
 import { Annotation, Compartment, EditorState } from '@codemirror/state';
-import { EditorView } from '@codemirror/view';
+import { EditorView, placeholder } from '@codemirror/view';
 import { basicSetup } from 'codemirror';
 import { vim } from '@replit/codemirror-vim';
 
@@ -72,6 +72,7 @@ export function createEditor(host: HTMLElement, options: Options): Editor {
       extensions: [
         basicSetup,
         EditorView.lineWrapping,
+        placeholder('open a file — ctrl+p'),
         vimCompartment.of(wantVim ? vim() : []),
         themeCompartment.of(editorTheme(wantTheme)),
         languageForPath(path),
