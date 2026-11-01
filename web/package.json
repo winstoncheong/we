@@ -24,6 +24,7 @@
     "@pierre/diffs": "^1.6.2",
     "@pierre/theme": "^2.0.0",
     "@pierre/theming": "^1.0.2",
+    "@pierre/trees": "1.0.0-beta.6",
     "@replit/codemirror-vim": "^6.4.0",
     "codemirror": "^6.0.2",
     "htmx.org": "^2.0.11",

@@ -1,0 +1,81 @@
+{% if !results_only %}
+<div class="palette" role="dialog" aria-modal="true" aria-label="{{ mode_label }}">
+  <div class="palette-input-row">
+    <span class="palette-mode">{{ mode_label }}</span>
+    <input
+      id="palette-input"
+      class="palette-input"
+      type="text"
+      name="q"
+      value="{{ query }}"
+      placeholder="{{ placeholder }}"
+      autocomplete="off"
+      autocapitalize="off"
+      spellcheck="false"
+      role="combobox"
+      aria-controls="palette-results"
+      aria-expanded="true"
+      aria-autocomplete="list"
+      hx-get="/fragments/palette"
+      hx-trigger="input changed delay:120ms"
+      hx-target="#palette-results"
+      hx-swap="innerHTML"
+      hx-sync="this:replace"
+      hx-vals='{"mode":"{{ mode }}","results_only":"1"}'
+    />
+  </div>
+  <div class="palette-results" id="palette-results" role="listbox" aria-label="Results">
+{% endif %}
+{% if mode == "commands" %}
+{% for command in commands %}
+    <button
+      class="palette-row{% if loop.first %} is-active{% endif %}{% if command.disabled %} is-disabled{% endif %}"
+      type="button"
+      role="option"
+      data-kind="command"
+      data-command="{{ command.id }}"
+      data-index="{{ loop.index0 }}"
+      {% if command.disabled %}data-disabled="true" aria-disabled="true"{% endif %}
+      title="{{ command.hint }}"
+    >
+      <span class="palette-name">{{ command.name }}</span>
+      <span class="palette-hint">{{ command.hint }}</span>
+      {% if !command.shortcut.is_empty() %}<kbd class="palette-kbd">{{ command.shortcut }}</kbd>{% endif %}
+    </button>
+{% endfor %}
+{% if commands.is_empty() %}
+    <div class="palette-empty">No commands match “{{ query }}”</div>
+{% endif %}
+{% else %}
+{% for hit in hits %}
+    <button
+      class="palette-row{% if loop.first %} is-active{% endif %}"
+      type="button"
+      role="option"
+      data-kind="file"
+      data-path="{{ hit.path }}"
+      data-index="{{ loop.index0 }}"
+      title="{{ hit.path }}"
+    >
+      <span class="palette-name">{{ hit.name }}</span>
+      {% if !hit.dir.is_empty() %}<span class="palette-dir">{{ hit.dir }}/</span>{% endif %}
+    </button>
+{% endfor %}
+{% if hits.is_empty() %}
+    <div class="palette-empty">No files match “{{ query }}”</div>
+{% endif %}
+{% endif %}
+{% if results_only %}
+<span id="palette-count" hx-swap-oob="innerHTML">{{ count_label }}</span>
+{% else %}
+  </div>
+  <div class="palette-foot">
+    <span class="palette-hints">
+      <span class="palette-hint-item"><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
+      <span class="palette-hint-item"><kbd>↵</kbd> open</span>
+      <span class="palette-hint-item"><kbd>esc</kbd> close</span>
+    </span>
+    <span class="palette-count" id="palette-count">{{ count_label }}</span>
+  </div>
+</div>
+{% endif %}

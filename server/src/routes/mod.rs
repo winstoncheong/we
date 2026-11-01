@@ -1,6 +1,7 @@
 pub mod actions;
 pub mod diff;
 pub mod files;
+pub mod palette;
 
 use std::convert::Infallible;
 use std::sync::Arc;
@@ -187,6 +188,7 @@ pub fn router(app: Arc<App>, assets: &str) -> Router {
         .route("/fragments/tabs", get(fragment_tabs))
         .route("/fragments/status", get(fragment_status))
         .route("/fragments/tree", get(fragment_tree))
+        .route("/fragments/palette", get(palette::fragment))
         .route("/actions/open", post(actions::open))
         .route("/actions/activate", post(actions::activate))
         .route("/actions/close", post(actions::close))
