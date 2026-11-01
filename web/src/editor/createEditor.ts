@@ -1,9 +1,10 @@
 import { Annotation, Compartment, EditorState } from '@codemirror/state';
+import type { LanguageSupport } from '@codemirror/language';
 import { EditorView, placeholder } from '@codemirror/view';
 import { basicSetup } from 'codemirror';
 import { vim } from '@replit/codemirror-vim';
 
-import { languageForPath } from './languages';
+import { loadLanguage } from './languages';
 import { editorTheme } from './theme';
 import type { AppTheme } from '../theme/pierre';
 
@@ -61,7 +62,9 @@ export type Editor = {
 export function createEditor(host: HTMLElement, options: Options): Editor {
   const themeCompartment = new Compartment();
   const vimCompartment = new Compartment();
+  const languageCompartment = new Compartment();
   const states = new Map<string, EditorState>();
+  const languages = new Map<string, LanguageSupport>();
 
   let currentPath = options.path;
   let wantVim = options.vim;
@@ -77,7 +80,7 @@ export function createEditor(host: HTMLElement, options: Options): Editor {
         placeholder('open a file — ctrl+p'),
         vimCompartment.of(wantVim ? vim() : []),
         themeCompartment.of(editorTheme(wantTheme)),
-        languageForPath(path),
+        languageCompartment.of(languages.get(path) ?? []),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
             const external = update.transactions.some((tr) => tr.annotation(External));
@@ -94,6 +97,21 @@ export function createEditor(host: HTMLElement, options: Options): Editor {
   });
 
   states.set(options.path, view.state);
+
+  // Language support loads lazily (one chunk per syntax); until it arrives the
+  // buffer edits as plain text, which is instant.
+  let languageRequest = 0;
+  function applyLanguage(path: string) {
+    const request = ++languageRequest;
+    void loadLanguage(path).then((support) => {
+      if (request !== languageRequest) return;
+      if (support) languages.set(path, support);
+      view.dispatch({
+        effects: languageCompartment.reconfigure(support ?? []),
+      });
+    });
+  }
+  applyLanguage(options.path);
 
   function report() {
     const head = view.state.selection.main.head;
@@ -137,6 +155,7 @@ export function createEditor(host: HTMLElement, options: Options): Editor {
         effects: [themeCompartment.reconfigure(editorTheme(wantTheme)), vimCompartment.reconfigure(wantVim ? vim() : [])],
         selection: { anchor: 0 },
       });
+      applyLanguage(path);
       view.focus();
       report();
     },

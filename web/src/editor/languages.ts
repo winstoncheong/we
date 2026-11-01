@@ -1,68 +1,27 @@
-import type { Extension } from '@codemirror/state';
-import { StreamLanguage } from '@codemirror/language';
-import { html } from '@codemirror/lang-html';
-import { javascript } from '@codemirror/lang-javascript';
-import { python } from '@codemirror/lang-python';
-import { markdown } from '@codemirror/lang-markdown';
-import { json } from '@codemirror/lang-json';
-import { stex } from '@codemirror/legacy-modes/mode/stex';
+// Language resolution for CodeMirror. `@codemirror/language-data` carries the
+// registry for ~130 syntaxes (lezer parsers where they exist, stream modes
+// otherwise) and loads each one lazily as its own chunk, so adding languages
+// costs nothing until a file of that type is opened.
 
-const latex = StreamLanguage.define(stex);
+import { LanguageDescription, type LanguageSupport } from '@codemirror/language';
+import { languages } from '@codemirror/language-data';
 
-export function languageForPath(path: string): Extension {
-  const ext = path.split('.').pop()?.toLowerCase() ?? '';
-  switch (ext) {
-    case 'py':
-      return python();
-    case 'js':
-    case 'mjs':
-    case 'cjs':
-    case 'ts':
-    case 'tsx':
-    case 'jsx':
-      return javascript({ typescript: ext.includes('ts') });
-    case 'html':
-    case 'htm':
-    case 'xml':
-      return html();
-    case 'md':
-    case 'mdx':
-    case 'markdown':
-      return markdown();
-    case 'json':
-      return json();
-    case 'tex':
-    case 'sty':
-    case 'cls':
-    case 'bib':
-      return latex;
-    default:
-      return [];
-  }
+/** Best description for a workspace path (extension, then basename). */
+export function describeLanguage(path: string): LanguageDescription | null {
+  const name = path.slice(path.lastIndexOf('/') + 1);
+  const byFilename = LanguageDescription.matchFilename(languages, name);
+  if (byFilename) return byFilename;
+  const ext = name.includes('.') ? name.slice(name.lastIndexOf('.') + 1) : '';
+  return ext ? LanguageDescription.matchLanguageName(languages, ext) : null;
 }
 
-export function languageLabel(path: string): string {
-  const ext = path.split('.').pop()?.toLowerCase() ?? '';
-  switch (ext) {
-    case 'py':
-      return 'Python';
-    case 'js':
-    case 'mjs':
-    case 'cjs':
-      return 'JavaScript';
-    case 'ts':
-    case 'tsx':
-      return 'TypeScript';
-    case 'html':
-    case 'htm':
-      return 'HTML';
-    case 'tex':
-    case 'sty':
-    case 'cls':
-      return 'LaTeX';
-    case 'md':
-      return 'Markdown';
-    default:
-      return 'Text';
+/** Loads a language on demand; resolves to null when none matches. */
+export async function loadLanguage(path: string): Promise<LanguageSupport | null> {
+  const description = describeLanguage(path);
+  if (!description) return null;
+  try {
+    return await description.load();
+  } catch {
+    return null;
   }
 }

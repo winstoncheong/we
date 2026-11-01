@@ -153,27 +153,73 @@ pub fn list_children(root: &Path, rel: &str, active: Option<&str>) -> Result<Vec
     Ok(entries)
 }
 
-/// Cheap-ish language label for the status bar.
+/// Human label for the status bar. Broader than the editor's syntax set on
+/// purpose: naming the language is useful even when we fall back to plain text.
 pub fn language(path: &str) -> &'static str {
-    let ext = path.rsplit('.').next().unwrap_or("").to_ascii_lowercase();
-    match ext.as_str() {
+    let name = path.rsplit('/').next().unwrap_or(path).to_ascii_lowercase();
+    match name.as_str() {
+        "makefile" | "gnumakefile" | "justfile" => return "make",
+        "dockerfile" | "containerfile" => return "dockerfile",
+        "cmakelists.txt" => return "cmake",
+        "cargo.lock" => return "toml",
+        "license" | "notice" => return "text",
+        _ => {}
+    }
+    let ext = name.rsplit('.').next().unwrap_or("");
+    match ext {
         "rs" => "rust",
-        "py" => "python",
-        "js" | "mjs" | "cjs" => "javascript",
-        "ts" | "tsx" => "typescript",
-        "jsx" => "javascript",
-        "html" | "htm" => "html",
-        "css" => "css",
-        "json" => "json",
-        "md" => "markdown",
-        "mdx" => "mdx",
-        "toml" => "toml",
-        "yaml" | "yml" => "yaml",
-        "tex" | "sty" | "cls" | "bib" => "latex",
-        "sh" | "bash" | "zsh" => "shell",
+        "py" | "pyi" | "pyw" => "python",
+        "js" | "mjs" | "cjs" | "jsx" => "javascript",
+        "ts" | "tsx" | "mts" | "cts" => "typescript",
         "go" => "go",
         "lua" => "lua",
+        "rb" | "rake" | "gemspec" => "ruby",
+        "java" => "java",
+        "kt" | "kts" => "kotlin",
+        "scala" | "sc" => "scala",
+        "swift" => "swift",
+        "c" | "h" => "c",
+        "cc" | "cpp" | "cxx" | "hpp" | "hh" | "hxx" => "c++",
+        "cs" => "c#",
+        "php" => "php",
+        "html" | "htm" => "html",
+        "xml" | "xsd" | "xsl" | "xslt" | "plist" => "xml",
         "svg" => "svg",
+        "css" => "css",
+        "scss" => "scss",
+        "sass" => "sass",
+        "less" => "less",
+        "json" | "jsonc" | "json5" => "json",
+        "yaml" | "yml" => "yaml",
+        "toml" => "toml",
+        "ini" | "cfg" | "conf" | "properties" => "ini",
+        "md" => "markdown",
+        "mdx" => "mdx",
+        "tex" | "sty" | "cls" | "bib" => "latex",
+        "sh" | "bash" | "zsh" | "fish" => "shell",
+        "ps1" | "psm1" => "powershell",
+        "bat" | "cmd" => "batch",
+        "sql" => "sql",
+        "graphql" | "gql" => "graphql",
+        "proto" => "protobuf",
+        "diff" | "patch" => "diff",
+        "vue" => "vue",
+        "svelte" => "svelte",
+        "astro" => "astro",
+        "ex" | "exs" => "elixir",
+        "erl" | "hrl" => "erlang",
+        "hs" | "lhs" => "haskell",
+        "ml" | "mli" => "ocaml",
+        "clj" | "cljs" | "cljc" | "edn" => "clojure",
+        "pl" | "pm" => "perl",
+        "r" => "r",
+        "jl" => "julia",
+        "tf" | "hcl" => "terraform",
+        "cmake" => "cmake",
+        "nginx" => "nginx",
+        "v" | "sv" | "svh" => "verilog",
+        "vhd" | "vhdl" => "vhdl",
+        "txt" | "log" => "text",
         _ => "text",
     }
 }
@@ -237,7 +283,19 @@ mod tests {
         assert_eq!(language("src/main.rs"), "rust");
         assert_eq!(language("README.md"), "markdown");
         assert_eq!(language("a.mdx"), "mdx");
-        assert_eq!(language("Makefile"), "text");
+        assert_eq!(language("Makefile"), "make");
+        assert_eq!(language("Dockerfile"), "dockerfile");
+        assert_eq!(language("CMakeLists.txt"), "cmake");
+        assert_eq!(language("script.lua"), "lua");
+        assert_eq!(language("app.rb"), "ruby");
+        assert_eq!(language("Main.java"), "java");
+        assert_eq!(language("lib.rs"), "rust");
+        assert_eq!(language("view.tsx"), "typescript");
+        assert_eq!(language("data.yml"), "yaml");
+        assert_eq!(language("Cargo.toml"), "toml");
+        assert_eq!(language("schema.xsd"), "xml");
+        assert_eq!(language("head.h"), "c");
+        assert_eq!(language("main.cpp"), "c++");
         assert!(is_markdown("notes.mdx"));
         assert!(!is_markdown("notes.txt"));
     }
