@@ -764,3 +764,30 @@ button {
     scroll-behavior: auto !important;
   }
 }
+
+/* ── toast ───────────────────────────────────────────────────────────── */
+
+/* Transient messages live outside the htmx-swapped status bar so a fragment
+   refresh (save, watcher) cannot wipe them mid-flash. */
+.toast {
+  position: fixed;
+  right: 12px;
+  bottom: calc(var(--status) + 10px);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  color: var(--fg-muted);
+  box-shadow: var(--shadow);
+  font-size: var(--fs-micro);
+  letter-spacing: 0.02em;
+  pointer-events: none;
+}
+
+.toast:empty {
+  display: none;
+}

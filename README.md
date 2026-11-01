@@ -38,16 +38,16 @@ Flags: `--root <dir>` (workspace to open, defaults to cwd), `--port <n>`
 
 | Keys | Action |
 | --- | --- |
-| `Ctrl+P` | quick open |
-| `Ctrl+Shift+P` | commands |
+| `Ctrl+P` | quick open (fuzzy, gitignore-aware) |
+| `Ctrl+Shift+P` | command palette |
 | `Ctrl+B` | toggle sidebar |
 | `Ctrl+S` | save active buffer |
-| `Ctrl+W` | close active tab |
 | `Ctrl+Shift+V` | markdown preview (md/mdx) |
-| `Ctrl+K` `Ctrl+T` | toggle theme |
 
 Vim keybindings are on by default (`@replit/codemirror-vim`); the status bar
-shows the current mode.
+shows the current mode. Theme toggling lives in the titlebar (`◐`) and the
+command palette; closing a buffer is the tab's `×` or the "Close tab" command
+(browsers reserve `Ctrl+W`).
 
 ## Notes
 

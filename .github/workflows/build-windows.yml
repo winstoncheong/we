@@ -23,6 +23,9 @@ jobs:
         with:
           workspaces: . -> target
 
+      - name: Test server
+        run: cargo test -p we-server
+
       - name: Install web deps
         working-directory: web
         run: npm ci
@@ -41,10 +44,22 @@ jobs:
           Start-Sleep -Seconds 2
           $r = Invoke-WebRequest -Uri "http://127.0.0.1:7810/health" -UseBasicParsing
           if ($r.Content -ne "ok") { throw "health check failed" }
+          $page = Invoke-WebRequest -Uri "http://127.0.0.1:7810/" -UseBasicParsing
+          if ($page.StatusCode -ne 200) { throw "shell did not render" }
+          $css = Invoke-WebRequest -Uri "http://127.0.0.1:7810/app.css" -UseBasicParsing
+          if ($css.StatusCode -ne 200) { throw "assets did not serve" }
           Stop-Process -Id $p.Id
+
+      - name: Bundle
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path bundle/web | Out-Null
+          Copy-Item target/release/we-server.exe bundle/
+          Copy-Item -Recurse web/dist bundle/web/dist
+          Copy-Item README.md bundle/
 
       - uses: actions/upload-artifact@v4
         with:
           name: we-windows
-          path: target/release/we-server.exe
+          path: bundle
           if-no-files-found: error
