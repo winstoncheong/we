@@ -67,7 +67,21 @@ function onKey(event: KeyboardEvent) {
     return;
   }
 
-  // Ctrl+W / Ctrl+S belong to the editor; never shadow them here.
+  // Works in the desktop shell; browsers reserve the chord and may close the tab.
+  if (key === 'w' && !event.shiftKey) {
+    const path = document.getElementById('editor')?.dataset.path ?? '';
+    if (!path) return;
+    intercept(event);
+    window.htmx?.ajax('POST', '/actions/close', {
+      source: document.body,
+      target: '#tabs',
+      swap: 'innerHTML',
+      values: { path },
+    });
+    return;
+  }
+
+  // Ctrl+S belongs to the editor; never shadow it here.
 }
 
 function intercept(event: KeyboardEvent) {

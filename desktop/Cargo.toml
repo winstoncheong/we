@@ -1,0 +1,15 @@
+[package]
+name = "we-desktop"
+version = "0.3.0"
+edition = "2024"
+description = "Desktop shell for the we editor"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+anyhow = "1"
+include_dir = "0.7"
+tauri = { version = "2", features = [] }
+tokio = { version = "1", features = ["full"] }
+we-server = { path = "../server", features = ["embed"] }

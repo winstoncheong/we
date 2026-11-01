@@ -29,3 +29,6 @@ dist-ssr
 # New web app
 web/node_modules
 web/dist
+
+desktop/node_modules
+desktop/gen

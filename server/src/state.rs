@@ -1,6 +1,8 @@
 use std::collections::BTreeSet;
 use std::path::PathBuf;
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
+
+use crate::assets::AssetSource;
 
 use tokio::sync::broadcast;
 
@@ -12,6 +14,7 @@ pub struct App {
     pub token: String,
     pub is_repo: bool,
     pub dev: bool,
+    pub assets: Arc<dyn AssetSource>,
     pub session: RwLock<Session>,
     /// Filesystem change notifications fanned out to `/events` subscribers.
     pub fs: broadcast::Sender<String>,
@@ -59,7 +62,7 @@ impl Session {
 }
 
 impl App {
-    pub fn new(root: PathBuf, dev: bool, token: String) -> Self {
+    pub fn new(root: PathBuf, dev: bool, token: String, assets: Arc<dyn AssetSource>) -> Self {
         let root_name = root
             .file_name()
             .map(|n| n.to_string_lossy().to_string())
@@ -72,6 +75,7 @@ impl App {
             token,
             is_repo,
             dev,
+            assets,
             session: RwLock::new(Session::default()),
             fs,
         }

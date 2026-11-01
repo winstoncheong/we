@@ -27,7 +27,10 @@ No React. No client-side router. No global store.
 ## Runtime shape
 
 - One process, bound to `127.0.0.1:7788` (configurable with `--port`).
-- Browser-first. Tauri can wrap it later; nothing depends on the webview.
+- Two front doors, one server: the `we-server` CLI serves `web/dist` from disk,
+  and the `we-desktop` Tauri shell runs the same router in-process on a random
+  port with the bundle compiled into the binary (`include_dir` + the `embed`
+  feature). Nothing in `web/` depends on the webview.
 - Every mutating request must carry `X-We-Token` (random per run, injected into
   the shell as a meta tag and as `hx-headers` on `<body>`). Blocks cross-origin
   form posts from other pages that can reach loopback.

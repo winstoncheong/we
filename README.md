@@ -31,6 +31,23 @@ npm --prefix web run build
 cargo run --release -p we-server -- --root .
 ```
 
+### Desktop app
+
+The desktop shell runs the same server in-process on a random loopback port and
+embeds `web/dist` in the binary, so the shipped app is self-contained.
+
+```sh
+npm --prefix web run build          # assets are compiled into the app
+cargo run --release -p we-desktop   # window + embedded server
+
+# dev: run the server yourself and point the window at it
+cargo run -p we-server -- --dev &
+WE_SERVER_URL=http://127.0.0.1:7788 cargo run -p we-desktop
+```
+
+Installers: `npm --prefix desktop run build` (Tauri CLI, NSIS on Windows).
+Set `WE_ROOT` or pass a directory to open a specific workspace.
+
 Flags: `--root <dir>` (workspace to open, defaults to cwd), `--port <n>`
 (default 7788), `--dev` (load assets from Vite).
 

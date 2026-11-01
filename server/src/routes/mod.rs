@@ -168,6 +168,14 @@ async fn health() -> &'static str {
     "ok"
 }
 
+/// Anything the router does not own is a static file from the browser build.
+async fn static_asset(State(app): State<Arc<App>>, uri: axum::http::Uri) -> Response {
+    match app.assets.read(uri.path()) {
+        Some((bytes, mime)) => ([(header::CONTENT_TYPE, mime)], bytes).into_response(),
+        None => (StatusCode::NOT_FOUND, "not found").into_response(),
+    }
+}
+
 async fn require_token(
     State(app): State<Arc<App>>,
     request: Request<axum::body::Body>,
@@ -189,7 +197,7 @@ async fn require_token(
     next.run(request).await
 }
 
-pub fn router(app: Arc<App>, assets: &str) -> Router {
+pub fn router(app: Arc<App>) -> Router {
     let shared = app.clone();
     Router::new()
         .route("/", get(index))
@@ -206,7 +214,7 @@ pub fn router(app: Arc<App>, assets: &str) -> Router {
         .route("/diff", get(diff::page))
         .route("/events", get(events))
         .route("/health", get(health))
-        .fallback_service(tower_http::services::ServeDir::new(assets))
+        .fallback(static_asset)
         .layer(axum::middleware::from_fn_with_state(shared, require_token))
         .with_state(app)
 }

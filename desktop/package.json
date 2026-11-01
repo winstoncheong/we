@@ -1,0 +1,13 @@
+{
+  "name": "we-desktop",
+  "private": true,
+  "version": "0.3.0",
+  "scripts": {
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "icons": "tauri icon ../web/public/favicon.svg"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}
