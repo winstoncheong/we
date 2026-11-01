@@ -1,8 +1,12 @@
 import './styles/app.css';
+// The ESM build of htmx does not publish `window.htmx`, but the shell's
+// fragments, the islands and the chrome all reach for it (htmx.ajax/process).
+// Bind it explicitly before anything mounts.
 import htmx from 'htmx.org';
 
 import { render } from 'solid-js/web';
 
+import { setupChrome } from './chrome';
 import { EditorIsland } from './editor/island';
 import { mountDiff } from './diff/island';
 import { setupTheme } from './theme';
@@ -13,11 +17,10 @@ declare global {
   }
 }
 
-// The ESM build does not attach itself to `window`; the islands rely on the
-// global for out-of-band chrome updates.
 window.htmx = htmx;
 
 setupTheme();
+setupChrome();
 
 // The tree is server-rendered and only refreshes on demand; keep its active
 // marker in step with the buffer the islands just opened.

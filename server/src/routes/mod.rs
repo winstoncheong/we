@@ -1,6 +1,7 @@
 pub mod actions;
 pub mod diff;
 pub mod files;
+pub mod palette;
 
 use std::convert::Infallible;
 use std::sync::Arc;
@@ -150,8 +151,17 @@ async fn fragment_tree(State(app): State<Arc<App>>, Query(query): Query<DirQuery
     }
 }
 
-async fn events() -> Sse<impl tokio_stream::Stream<Item = Result<Event, Infallible>>> {
-    Sse::new(tokio_stream::empty()).keep_alive(KeepAlive::default())
+async fn events(
+    State(app): State<Arc<App>>,
+) -> Sse<impl tokio_stream::Stream<Item = Result<Event, Infallible>>> {
+    use tokio_stream::StreamExt;
+
+    let stream = tokio_stream::wrappers::BroadcastStream::new(app.fs.subscribe()).map(|message| {
+        // A lagged receiver still means "something changed", so never drop it.
+        let kind = message.unwrap_or_else(|_| "change".to_string());
+        Ok::<_, Infallible>(Event::default().event("fs").data(kind))
+    });
+    Sse::new(stream).keep_alive(KeepAlive::default())
 }
 
 async fn health() -> &'static str {
@@ -186,6 +196,7 @@ pub fn router(app: Arc<App>, assets: &str) -> Router {
         .route("/fragments/tabs", get(fragment_tabs))
         .route("/fragments/status", get(fragment_status))
         .route("/fragments/tree", get(fragment_tree))
+        .route("/fragments/palette", get(palette::fragment))
         .route("/actions/open", post(actions::open))
         .route("/actions/activate", post(actions::activate))
         .route("/actions/close", post(actions::close))
