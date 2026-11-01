@@ -1,0 +1,28 @@
+{% for tab in view.tabs %}
+<div class="tab{% if tab.active %} is-active{% endif %}" data-path="{{ tab.path }}">
+  <button
+    class="tab-main"
+    type="button"
+    hx-post="/actions/activate"
+    hx-vals='{"path":"{{ tab.path }}"}'
+    hx-target="#tabs"
+    hx-swap="innerHTML"
+    title="{{ tab.path }}"
+  >
+    {% if !tab.dir.is_empty() %}<span class="tab-dir">{{ tab.dir }}/</span>{% endif %}<span class="tab-name">{{ tab.name }}</span>
+  </button>
+  {% if tab.dirty %}<span class="tab-dirty" title="unsaved">●</span>{% endif %}
+  <button
+    class="tab-close"
+    type="button"
+    hx-post="/actions/close"
+    hx-vals='{"path":"{{ tab.path }}"}'
+    hx-target="#tabs"
+    hx-swap="innerHTML"
+    title="Close"
+  >×</button>
+</div>
+{% endfor %}
+{% if !view.has_tabs %}
+<span class="tabs-empty">no open buffers</span>
+{% endif %}

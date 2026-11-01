@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en" class="dark" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="we-token" content="{{ view.token }}" />
+    <title>diff — {{ view.active_name }}</title>
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('we:theme');
+          if (t === 'light') {
+            document.documentElement.classList.remove('dark');
+            document.documentElement.classList.add('light');
+            document.documentElement.dataset.theme = 'light';
+          }
+        } catch (e) {}
+      })();
+    </script>
+    {% if !view.dev %}<link rel="stylesheet" href="/assets/app.css" />{% endif %}
+    {% if view.dev %}<script type="module" src="{{ view.vite_url }}/@vite/client"></script>{% endif %}
+  </head>
+  <body hx-headers='{"X-We-Token":"{{ view.token }}"}'>
+    <div class="app diff-app">
+      <header class="titlebar">
+        <a class="brand" href="/">
+          <span class="brand-mark">we</span>
+          <span class="brand-repo">/ diff</span>
+        </a>
+        <div class="spacer"></div>
+        <span class="pill" id="diff-status">…</span>
+        <button class="btn ghost sm" type="button" id="theme-toggle" title="Toggle theme">
+          <span class="theme-icon">◐</span>
+        </button>
+        <a class="btn outline sm" href="/">Back to editor</a>
+      </header>
+
+      <main class="diff-main">
+        <div class="diff-head">
+          <span class="diff-file">{{ view.active_path }}</span>
+          <span class="diff-meta" id="diff-meta"></span>
+        </div>
+        <div class="diff-body" id="diff-body" data-path="{{ view.active_path }}">
+          <div class="diff-placeholder">loading diff…</div>
+        </div>
+      </main>
+
+      <footer class="statusbar" id="status">{% include "partials/status.html" %}</footer>
+    </div>
+
+    {% if view.dev %}
+    <script type="module" src="{{ view.vite_url }}/src/main.tsx"></script>
+    {% else %}
+    <script type="module" src="/assets/app.js"></script>
+    {% endif %}
+  </body>
+</html>

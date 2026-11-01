@@ -1,0 +1,35 @@
+{% for entry in view.entries %}
+  {% if entry.is_dir %}
+  <details
+    class="tree-details"
+    data-path="{{ entry.path }}"
+    hx-get="/fragments/tree"
+    hx-vals='{"dir":"{{ entry.path }}"}'
+    hx-target="find .tree-children"
+    hx-swap="innerHTML"
+    hx-trigger="toggle once"
+  >
+    <summary class="tree-row dir">
+      <span class="chev"></span>
+      <span class="tree-name">{{ entry.name }}</span>
+    </summary>
+    <div class="tree-children"></div>
+  </details>
+  {% else %}
+  <button
+    class="tree-row file{% if entry.active %} is-active{% endif %}"
+    type="button"
+    data-path="{{ entry.path }}"
+    hx-post="/actions/open"
+    hx-vals='{"path":"{{ entry.path }}"}'
+    hx-target="#tabs"
+    hx-swap="innerHTML"
+    title="{{ entry.path }}"
+  >
+    <span class="tree-name">{{ entry.name }}</span>
+  </button>
+  {% endif %}
+{% endfor %}
+{% if view.entries.is_empty() %}
+<li class="tree-empty">empty</li>
+{% endif %}

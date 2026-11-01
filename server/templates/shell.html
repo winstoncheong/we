@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en" class="dark" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="we-token" content="{{ view.token }}" />
+    <title>we{% if view.has_active %} — {{ view.active_name }}{% endif %}</title>
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('we:theme');
+          if (t === 'light') {
+            document.documentElement.classList.remove('dark');
+            document.documentElement.classList.add('light');
+            document.documentElement.dataset.theme = 'light';
+          }
+        } catch (e) {}
+      })();
+    </script>
+    {% if !view.dev %}<link rel="stylesheet" href="/assets/app.css" />{% endif %}
+    {% if view.dev %}<script type="module" src="{{ view.vite_url }}/@vite/client"></script>{% endif %}
+  </head>
+  <body hx-headers='{"X-We-Token":"{{ view.token }}"}'>
+    <div class="app">
+      <header class="titlebar">
+        <div class="brand">
+          <span class="brand-mark">we</span>
+          <span class="brand-repo">{{ view.root_name }}</span>
+          {% if view.is_repo %}<span class="pill">git</span>{% endif %}
+        </div>
+        <div class="spacer"></div>
+        <button class="btn ghost sm" type="button" id="theme-toggle" title="Toggle theme">
+          <span class="theme-icon">◐</span>
+        </button>
+        {% if view.has_active && view.is_repo %}
+        <a class="btn outline sm" href="/diff?path={{ view.active_path }}">Diff</a>
+        {% endif %}
+      </header>
+
+      <div class="workspace">
+        <aside class="sidebar" id="sidebar">
+          <div class="panel-head">
+            <span class="panel-title">Explorer</span>
+            <span class="panel-meta">{{ view.root_name }}</span>
+          </div>
+          <nav class="tree" id="tree" hx-get="/fragments/tree" hx-trigger="we:tree from:body" hx-swap="innerHTML">
+            {% include "partials/tree.html" %}
+          </nav>
+          <div class="panel-foot">
+            <span class="panel-title">workspace</span>
+            <span class="panel-meta">we {{ view.version }}</span>
+          </div>
+        </aside>
+
+        <main class="main" id="main">
+          <div class="tabs" id="tabs">{% include "partials/tabs.html" %}</div>
+          <div class="editor" id="editor" data-path="{{ view.active_path }}" data-markdown="{{ view.markdown }}">
+            <div id="editor-island" class="editor-island"></div>
+          </div>
+        </main>
+      </div>
+
+      <footer class="statusbar" id="status">{% include "partials/status.html" %}</footer>
+    </div>
+
+    {% if view.dev %}
+    <script type="module" src="{{ view.vite_url }}/src/main.tsx"></script>
+    {% else %}
+    <script type="module" src="/assets/app.js"></script>
+    {% endif %}
+  </body>
+</html>

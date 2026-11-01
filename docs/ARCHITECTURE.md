@@ -1,0 +1,104 @@
+# Architecture
+
+`we` is a local-first editor built as a hypermedia app: a Rust server renders
+HTML, htmx swaps fragments, and two small SolidJS islands own the parts that
+cannot round-trip (the code editor and the diff renderer).
+
+No React. No client-side router. No global store.
+
+```
+┌──────────────────────────── browser ────────────────────────────┐
+│  shell.html (Askama)                                            │
+│  ├─ #tabs   ← htmx fragments                                    │
+│  ├─ #tree   ← htmx fragments (lazy per directory)               │
+│  ├─ #status ← htmx fragments (out-of-band on every action)      │
+│  └─ #editor-island / #diff-body  ← SolidJS islands              │
+└─────────────────────────────────────────────────────────────────┘
+             │ fetch / htmx                     ▲ HX-Trigger-After-Swap
+             ▼                                  │
+┌──────────────────────── Axum (127.0.0.1) ───────────────────────┐
+│  session state: open tabs, active buffer, dirty set             │
+│  filesystem: read/write/children (workspace-rooted)             │
+│  git: status + patch for the active file                        │
+│  assets: web/dist (prod) or Vite dev server (dev)               │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## Runtime shape
+
+- One process, bound to `127.0.0.1:7788` (configurable with `--port`).
+- Browser-first. Tauri can wrap it later; nothing depends on the webview.
+- Every mutating request must carry `X-We-Token` (random per run, injected into
+  the shell as a meta tag and as `hx-headers` on `<body>`). Blocks cross-origin
+  form posts from other pages that can reach loopback.
+- Paths are workspace-relative, validated by `files::resolve` (no `..`, no
+  absolutes, must stay under the root).
+
+## Dev loop
+
+```sh
+cargo run -p we-server -- --dev        # http://127.0.0.1:7788
+npm --prefix web run dev               # Vite on 127.0.0.1:5173
+```
+
+`--dev` renders `<script src="http://127.0.0.1:5173/src/main.tsx">`; Vite serves
+the islands with HMR. Templates are compiled into the binary, so **template
+edits need `cargo build`**.
+
+Production: `npm --prefix web run build` then `cargo build --release`; the
+server serves `web/dist` under `/assets` (`WE_ASSETS` overrides the path).
+
+## Htmx contract
+
+Fragments:
+
+| Route | Returns |
+| --- | --- |
+| `GET /fragments/tree?dir=` | children of `dir` (lazy `<details>` expansion) |
+| `GET /fragments/tabs` | tab strip |
+| `GET /fragments/status` | status bar |
+| `POST /actions/open\|activate\|close` | tabs + OOB status, then a `we:open` event |
+| `POST /actions/dirty` | tabs + OOB status |
+| `GET /api/file?path=` | raw text for the editor island |
+| `PUT /api/file?path=` | save (island → server) |
+| `GET /api/diff?path=` | JSON patch + original/current |
+| `GET /diff?path=` | full-page diff view |
+
+Mutations answer with the tabs fragment and an out-of-band status bar, then set
+`HX-Trigger-After-Swap: {"we:open":{"path":"…"}}`. The event fires **after** the
+DOM swap, so islands never read a half-updated page.
+
+Rules:
+
+- Every DOM subtree has exactly one writer. htmx owns tree/tabs/status;
+  Solid owns `#editor-island` and `#diff-body`.
+- High-frequency facts (cursor position, vim mode, dirty dot while typing) are
+  written directly by the island; structural facts (tabs list, dirty count)
+  round-trip through htmx, debounced.
+- No `hx-boost`, no client router.
+
+## Islands
+
+- `web/src/editor` — CodeMirror 6 + vim keybindings. One `EditorView`, one
+  `EditorState` per buffer (per-file undo history), compartmented theme/vim,
+  `External` transaction annotation to stop doc-sync loops. Owns save (Ctrl+S),
+  dirty reporting, cursor/vim status.
+- `web/src/diff` — `@pierre/diffs` renders the patch server-side provides.
+- `web/src/preview` — markdown/MDX side-by-side preview with synced scrolling.
+
+## Design
+
+Tokens live in `web/src/styles/app.css`: sans-serif chrome, mono only for code,
+10/8/6px radii, 1px borders at 10% alpha, one blue accent, computed diff tints.
+Light and dark are explicit (`.light` on `<html>`, persisted in localStorage).
+
+## Performance rules
+
+- Rendering happens on the server; the client ships no framework for the chrome.
+- The tree is lazy: only the children of expanded folders are rendered.
+- The editor is the only always-on island. Typing never hits the network except
+  a debounced dirty flag; saving is explicit (or on blur/close).
+- Markdown preview renders off the hot path: 150–250ms trailing debounce,
+  per-block patching, `content-visibility: auto`.
+- Diff parsing/rendering runs in the diff island only; the editor page never
+  loads `@pierre/diffs`.

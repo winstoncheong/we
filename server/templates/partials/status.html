@@ -1,0 +1,14 @@
+{% if view.has_active %}
+<span class="status-item">
+  <span class="status-dot"></span>
+  <span class="status-file">{{ view.active_name }}</span>
+</span>
+<span class="status-item">{{ view.language }}</span>
+<span class="status-item" data-role="cursor">ln 1, col 1</span>
+<span class="status-item" data-role="mode">normal</span>
+{% else %}
+<span class="status-item"><span class="status-file">no buffer</span></span>
+{% endif %}
+<span class="spacer"></span>
+<span class="status-item" data-role="dirty">{% if view.dirty_count > 0 %}{{ view.dirty_count }} unsaved{% endif %}</span>
+<span class="status-item">we {{ view.version }}</span>

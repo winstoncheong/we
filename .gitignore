@@ -22,3 +22,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Rust
+/target
+
+# New web app
+web/node_modules
+web/dist
