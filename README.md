@@ -1,53 +1,59 @@
 # we
 
-Thin local personal editor. Vite + React + CodeMirror 6 frontend, Tauri native shell.
+A thin, local-first code editor: Rust server, HTML over the wire, and two
+SolidJS islands where a round-trip would be wrong.
 
-Goals: vim keybindings, file tree, Sublime-like shortcuts, fast/responsive.
-Languages: LaTeX, Python, HTML, JS/TS, Markdown, JSON.
+- **Server:** Axum + Askama. Owns session state (tabs, active buffer, dirty set),
+  filesystem access, git diffs, and every fragment the UI swaps in.
+- **Chrome:** htmx. The file tree (lazy per directory), tabs, status bar and
+  command palette are server-rendered HTML; no client-side router or store.
+- **Islands:** SolidJS + CodeMirror 6 for the editor (vim keybindings), and
+  `@pierre/diffs` for the diff view.
+- **Look:** the diffs.com language — sans-serif chrome, monospace code, quiet
+  neutral surfaces, hairline borders, one blue accent, explicit light/dark.
 
-## Look
-
-Everything is painted from one Pierre theme (`@pierre/theme`) through
-`@pierre/theming`:
-
-- `src/theme/pierre.ts` resolves `pierre-dark` / `pierre-light` into CSS
-  variables for the app chrome, inline styles for the file tree, and the token
-  colors used for syntax highlighting.
-- `src/editor/theme.ts` maps CodeMirror tags onto TextMate scopes and builds the
-  editor chrome + highlight style from the same theme.
-- `src/theme/*` swap at runtime (`ctrl+k ctrl+t`), chrome, tree and syntax move
-  together.
-
-Type: Berkeley Mono if installed, falling back to the platform mono stack.
-Layout: monospace, hairline rules, square corners, no shadows or gradients.
-
-## Deps
-
-- `@replit/codemirror-vim` (CodeMirror 6 vim mode — package is `codemirror-vim` on neither npm scope; the maintained one is `@replit/codemirror-vim`)
-- `@pierre/trees` + `@pierre/trees/react` (file tree)
-- `@pierre/theme` + `@pierre/theming` (color source and derivation)
-- Tauri 2 + `@tauri-apps/plugin-fs`, `@tauri-apps/plugin-dialog` (local FS)
+Architecture details and the htmx/island contract live in
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Run
 
 ```sh
-npm install
-npm run dev        # browser demo (in-memory files)
-npm run tauri dev  # native, real FS
+# dev: Rust on :7788, Vite with HMR on :5173
+cargo run -p we-server -- --dev --root .
+
+npm --prefix web install
+npm --prefix web run dev
 ```
-
-Shortcuts: `Ctrl+P` files, `Ctrl+Shift+P` commands, `Ctrl+S` save,
-`Ctrl+O` open folder, `Ctrl+W` close tab, `Ctrl+B` sidebar,
-`Ctrl+K Ctrl+B` sidebar, `Ctrl+K Ctrl+T` theme.
-
-## Windows prerequisite for Tauri
-
-Tauri needs the MSVC linker, which this machine currently lacks
-(no `link.exe` / `vcvarsall.bat` found; only target `x86_64-pc-windows-msvc`
-installed with nothing to link against). Install once (admin):
 
 ```sh
-winget install Microsoft.VisualStudio.2022.BuildTools --override "--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --passive"
+# production: one binary + built assets
+npm --prefix web run build
+cargo run --release -p we-server -- --root .
 ```
 
-then `cargo check --manifest-path src-tauri/Cargo.toml`.
+Flags: `--root <dir>` (workspace to open, defaults to cwd), `--port <n>`
+(default 7788), `--dev` (load assets from Vite).
+
+## Shortcuts
+
+| Keys | Action |
+| --- | --- |
+| `Ctrl+P` | quick open |
+| `Ctrl+Shift+P` | commands |
+| `Ctrl+B` | toggle sidebar |
+| `Ctrl+S` | save active buffer |
+| `Ctrl+W` | close active tab |
+| `Ctrl+Shift+V` | markdown preview (md/mdx) |
+| `Ctrl+K` `Ctrl+T` | toggle theme |
+
+Vim keybindings are on by default (`@replit/codemirror-vim`); the status bar
+shows the current mode.
+
+## Notes
+
+- Askama compiles templates into the binary: rebuild after editing
+  `server/templates/*`.
+- Every mutating request carries a per-run `X-We-Token` header so other pages
+  cannot drive the local server.
+- Paths are workspace-relative and validated; nothing outside `--root` is
+  readable.

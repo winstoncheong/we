@@ -15,20 +15,36 @@ jobs:
         with:
           node-version: 24
           cache: npm
+          cache-dependency-path: web/package-lock.json
 
       - uses: dtolnay/rust-toolchain@stable
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri -> target
+          workspaces: . -> target
 
-      - run: npm ci
-      - run: npm run tauri build
+      - name: Install web deps
+        working-directory: web
+        run: npm ci
+
+      - name: Build web
+        working-directory: web
+        run: npm run typecheck && npm run build
+
+      - name: Build server
+        run: cargo build --release -p we-server
+
+      - name: Smoke test
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath ".\target\release\we-server.exe" -ArgumentList "--port","7810" -PassThru
+          Start-Sleep -Seconds 2
+          $r = Invoke-WebRequest -Uri "http://127.0.0.1:7810/health" -UseBasicParsing
+          if ($r.Content -ne "ok") { throw "health check failed" }
+          Stop-Process -Id $p.Id
 
       - uses: actions/upload-artifact@v4
         with:
-          name: my-editor-windows
-          path: |
-            src-tauri/target/release/bundle/nsis/*.exe
-            src-tauri/target/release/bundle/msi/*.msi
+          name: we-windows
+          path: target/release/we-server.exe
           if-no-files-found: error
