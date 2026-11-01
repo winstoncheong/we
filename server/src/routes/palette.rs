@@ -77,10 +77,7 @@ pub struct Palette {
     pub count_label: String,
 }
 
-pub async fn fragment(
-    State(app): State<Arc<App>>,
-    Query(query): Query<PaletteQuery>,
-) -> Response {
+pub async fn fragment(State(app): State<Arc<App>>, Query(query): Query<PaletteQuery>) -> Response {
     let mode = if query.mode == "commands" {
         "commands"
     } else {
@@ -387,8 +384,8 @@ fn score_slice(needle: &[char], hay: &[char]) -> Option<i32> {
             Some(prev) => total -= ((index - prev - 1) as i32).min(10),
             None => {}
         }
-        let boundary = index == 0
-            || matches!(hay[index - 1], '/' | '.' | '_' | '-' | ' ' | '(' | '[');
+        let boundary =
+            index == 0 || matches!(hay[index - 1], '/' | '.' | '_' | '-' | ' ' | '(' | '[');
         if boundary {
             total += 8;
         }
