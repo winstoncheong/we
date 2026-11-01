@@ -1,4 +1,4 @@
-# my-editor
+# we
 
 Thin local personal editor. Vite + React + CodeMirror 6 frontend, Tauri native shell.
 
