@@ -1,5 +1,5 @@
 import './styles/app.css';
-import 'htmx.org';
+import htmx from 'htmx.org';
 
 import { render } from 'solid-js/web';
 
@@ -9,16 +9,13 @@ import { setupTheme } from './theme';
 
 declare global {
   interface Window {
-    htmx?: {
-      ajax: (
-        verb: string,
-        path: string,
-        options?: Record<string, unknown>,
-      ) => Promise<unknown>;
-      trigger: (element: Element | string, event: string) => void;
-    };
+    htmx?: typeof htmx;
   }
 }
+
+// The ESM build does not attach itself to `window`; the islands rely on the
+// global for out-of-band chrome updates.
+window.htmx = htmx;
 
 setupTheme();
 
