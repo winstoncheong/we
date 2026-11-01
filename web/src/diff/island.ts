@@ -333,7 +333,12 @@ export async function mountDiff(container: HTMLElement) {
   // Highlighting resolves asynchronously (Shiki chunks load on demand), and a
   // failure there is silent: the instance can hold an empty <pre> forever. Watch
   // for real rows so the page never sits blank without an explanation.
+  //
+  // If the window is occluded, Chromium throttles frames and a correct renderer
+  // paints nothing for a while. Never tear the panel down for that: warn in the
+  // header and keep watching, so the diff appears as soon as frames resume.
   const started = Date.now();
+  let warned = false;
   const watchdog = window.setInterval(() => {
     if (!container.isConnected) {
       window.clearInterval(watchdog);
@@ -342,20 +347,15 @@ export async function mountDiff(container: HTMLElement) {
     const painted =
       (host.querySelector('diffs-container')?.shadowRoot?.querySelectorAll('[data-line]').length ??
         0) > 0;
-    if (painted || Date.now() - started > RENDER_WATCHDOG_MS) {
+    if (painted) {
       window.clearInterval(watchdog);
-      if (painted) return;
-      try {
-        created?.cleanUp();
-      } catch {
-        /* already torn down */
-      }
-      renderer = null;
-      showEmpty(container, {
-        icon: '!',
-        title: 'The diff did not finish rendering',
-        body: 'The renderer never painted its first line. Rebuild the web bundle (npm run build) and reload; the assets must be served under /assets.',
-      });
+      if (warned) paintHeader(payload);
+      return;
+    }
+    if (!warned && Date.now() - started > RENDER_WATCHDOG_MS) {
+      warned = true;
+      const meta = document.getElementById('diff-meta');
+      if (meta != null) meta.textContent = 'renderer waiting for a paint — is this window in the background?';
     }
   }, 250);
 }
