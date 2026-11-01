@@ -28,7 +28,6 @@
           <span class="brand-repo">/ diff</span>
         </a>
         <div class="spacer"></div>
-        <span class="pill" id="diff-status">…</span>
         <button class="btn ghost sm" type="button" id="theme-toggle" title="Toggle theme">
           <span class="theme-icon">◐</span>
         </button>
@@ -37,8 +36,17 @@
 
       <main class="diff-main">
         <div class="diff-head">
-          <span class="diff-file">{{ view.active_path }}</span>
-          <span class="diff-meta" id="diff-meta"></span>
+          <div class="diff-filegroup">
+            <span class="diff-file">{{ view.active_path }}</span>
+            <span class="diff-counts" id="diff-meta"></span>
+          </div>
+          <div class="diff-head-actions">
+            <span class="pill" id="diff-status">…</span>
+            <div class="segmented" id="diff-layout" role="radiogroup" aria-label="Diff layout">
+              <button type="button" role="radio" data-layout="split" aria-checked="false">Split</button>
+              <button type="button" role="radio" data-layout="unified" aria-checked="true">Stacked</button>
+            </div>
+          </div>
         </div>
         <div class="diff-body" id="diff-body" data-path="{{ view.active_path }}">
           <div class="diff-placeholder">loading diff…</div>
