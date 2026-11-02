@@ -49,7 +49,8 @@ the islands with HMR. Templates are compiled into the binary, so **template
 edits need `cargo build`**.
 
 Production: `npm --prefix web run build` then `cargo build --release`; the
-server serves `web/dist` under `/assets` (`WE_ASSETS` overrides the path).
+server serves `web/dist` at the root (`/app.js`, `/app.css`, chunks) and
+`WE_ASSETS` overrides the directory.
 
 ## Htmx contract
 
@@ -99,11 +100,23 @@ Rules:
 - `web/src/diff` — `@pierre/diffs` renders the patch server-side provides.
 - `web/src/preview` — markdown/MDX side-by-side preview with synced scrolling.
 
+## Chrome
+
+- `web/src/chrome` holds everything that is not an island: htmx wiring, global
+  shortcuts, the SSE watch loop, and client-only state that must survive swaps
+  (sidebar, tree expansion, palette retry budget).
+- `tree.ts` snapshots open `<details>` before a tree swap and re-opens them on
+  `htmx:afterSettle` — not `afterSwap`, because htmx attaches `hx-trigger` to
+  swapped nodes during settle.
+- `watch.ts` refreshes tabs/status on every `fs` event and the tree only for
+  `structure`.
+
 ## Design
 
-Tokens live in `web/src/styles/app.css`: sans-serif chrome, mono only for code,
-10/8/6px radii, 1px borders at 10% alpha, one blue accent, computed diff tints.
-Light and dark are explicit (`.light` on `<html>`, persisted in localStorage).
+Tokens live in `web/src/styles/tokens.css` (imported by `app.css`): sans-serif
+chrome, mono only for code, 10/8/6px radii, 1px borders at 10% alpha, one blue
+accent, computed diff tints. Light and dark are explicit (`.light` on `<html>`,
+persisted in localStorage), and every token needs both values.
 
 ## Performance rules
 
