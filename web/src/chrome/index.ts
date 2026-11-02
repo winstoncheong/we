@@ -8,6 +8,7 @@ import './chrome.css';
 
 import { closePalette, isPaletteOpen, openPalette } from './palette';
 import { applySidebar, readSidebar, toggleSidebar } from './sidebar';
+import { setupTree } from './tree';
 import { setupWatch } from './watch';
 
 export function setupChrome() {
@@ -16,6 +17,7 @@ export function setupChrome() {
 
   applySidebar(readSidebar());
   installShortcuts();
+  setupTree();
   setupWatch();
 
   document.addEventListener('click', (event) => {

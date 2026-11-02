@@ -1,13 +1,16 @@
 //! Filesystem watcher: one debounced broadcast for the whole workspace.
 //!
 //! The shell already knows how to refresh itself from fragments, so the watcher
-//! only has to say *that* something changed over SSE. The client refreshes the
-//! tree, tab strip and status bar — never the editor buffer.
+//! only has to say *that* something changed over SSE — and whether that change
+//! could have moved the tree (`structure`) or only touched file contents
+//! (`change`). The client refreshes the tree, tab strip and status bar; it
+//! never touches the editor buffer.
 
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, RecvTimeoutError};
 use std::time::{Duration, Instant};
 
+use notify::event::ModifyKind;
 use notify::{EventKind, RecursiveMode, Watcher};
 use tokio::sync::broadcast;
 
@@ -28,6 +31,12 @@ const IGNORED: &[&str] = &[
 
 /// Trailing edits of one save arrive as several events; wait them out.
 const COALESCE: Duration = Duration::from_millis(250);
+
+/// Coalesced burst summaries. The chrome only needs to know whether the
+/// *shape* of the tree changed (`structure`) or only file contents did
+/// (`change`).
+pub const STRUCTURE: &str = "structure";
+pub const CHANGE: &str = "change";
 
 pub fn spawn(root: PathBuf, tx: broadcast::Sender<String>) {
     if let Err(err) = std::thread::Builder::new()
@@ -65,12 +74,17 @@ fn run(root: PathBuf, tx: broadcast::Sender<String>) {
         };
 
         let mut kind = first.kind;
+        let mut reshaped = structural(&kind);
         let mut paths = first.paths;
         let deadline = Instant::now() + COALESCE;
         while let Some(left) = deadline.checked_duration_since(Instant::now()) {
             match raw_rx.recv_timeout(left) {
                 Ok(Ok(next)) => {
                     if interesting(&next.kind) {
+                        // A create is usually followed by a modify of the new
+                        // file; one structural event makes the whole burst
+                        // structural, so the tree still refreshes.
+                        reshaped |= structural(&next.kind);
                         kind = next.kind;
                     }
                     paths.extend(next.paths);
@@ -89,7 +103,7 @@ fn run(root: PathBuf, tx: broadcast::Sender<String>) {
             continue;
         }
         // No subscribers is fine; the send only fails when nobody listens.
-        let _ = tx.send(label(&kind).to_string());
+        let _ = tx.send(if reshaped { STRUCTURE } else { CHANGE }.to_string());
     }
 }
 
@@ -100,13 +114,13 @@ fn interesting(kind: &EventKind) -> bool {
     )
 }
 
-fn label(kind: &EventKind) -> &'static str {
-    match kind {
-        EventKind::Create(_) => "create",
-        EventKind::Remove(_) => "remove",
-        EventKind::Modify(_) => "change",
-        _ => "change",
-    }
+/// True when the event can change what the explorer shows: entries appearing,
+/// disappearing or moving. Writing a file's contents cannot.
+fn structural(kind: &EventKind) -> bool {
+    matches!(
+        kind,
+        EventKind::Create(_) | EventKind::Remove(_) | EventKind::Modify(ModifyKind::Name(_))
+    )
 }
 
 /// True when the path is inside a directory we never report on.
@@ -123,7 +137,9 @@ fn ignored(path: &Path, root: &Path) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::ignored;
+    use super::{ignored, structural};
+    use notify::event::ModifyKind;
+    use notify::EventKind;
     use std::path::Path;
 
     #[test]
@@ -136,5 +152,23 @@ mod tests {
         assert!(ignored(Path::new("/work/src/main.rs~"), root));
         assert!(!ignored(Path::new("/work/src/main.tsx"), root));
         assert!(!ignored(Path::new("/work/server/src/main.rs"), root));
+    }
+
+    #[test]
+    fn only_structural_events_refresh_the_tree() {
+        assert!(structural(&EventKind::Create(
+            notify::event::CreateKind::File
+        )));
+        assert!(structural(&EventKind::Remove(
+            notify::event::RemoveKind::File
+        )));
+        assert!(structural(&EventKind::Modify(ModifyKind::Name(
+            notify::event::RenameMode::Both
+        ))));
+        // Saving a buffer writes its contents; the tree's shape is unchanged.
+        assert!(!structural(&EventKind::Modify(ModifyKind::Data(
+            notify::event::DataChange::Content
+        ))));
+        assert!(!structural(&EventKind::Any));
     }
 }

@@ -64,9 +64,14 @@
     </button>
 {% endfor %}
 {% if hits.is_empty() %}
+    {% if indexing %}
+    <div class="palette-empty">Indexing files…</div>
+    {% else %}
     <div class="palette-empty">No files match “{{ query }}”</div>
+    {% endif %}
 {% endif %}
 {% endif %}
+{% if indexing %}<span data-indexing="true" hidden></span>{% endif %}
 {% if results_only %}
 <span id="palette-count" hx-swap-oob="innerHTML">{{ count_label }}</span>
 {% else %}

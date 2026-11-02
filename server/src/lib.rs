@@ -23,6 +23,9 @@ pub fn build_app(
     let app = Arc::new(App::new(root, dev, token, assets));
     // One watcher per workspace, fanned out to `/events` subscribers.
     crate::watcher::spawn(app.root.clone(), app.fs.clone());
+    // Index the workspace before the first Ctrl+P; the walk is slow on big
+    // trees and must never be on the request path.
+    crate::routes::palette::prime(&app.root);
     app
 }
 

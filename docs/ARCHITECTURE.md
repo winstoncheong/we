@@ -61,7 +61,7 @@ Fragments:
 | `GET /fragments/tabs` | tab strip |
 | `GET /fragments/status` | status bar |
 | `GET /fragments/palette?mode=files\|commands&q=` | palette shell, or just its results (`results_only=1`) |
-| `GET /events` | SSE stream of `fs` change events from the workspace watcher |
+| `GET /events` | SSE stream of `fs` events labelled `structure` (entries added/removed/renamed) or `change` (contents only) |
 | `POST /actions/open\|activate\|close` | tabs + OOB status, then a `we:open` event |
 | `POST /actions/dirty` | tabs + OOB status |
 | `GET /api/file?path=` | raw text for the editor island |
@@ -82,6 +82,9 @@ Rules:
   round-trip through htmx, debounced.
 - The filesystem watcher only refreshes chrome (tree/tabs/status). It never
   reloads the editor buffer, so unsaved work is never clobbered.
+- The tree is refreshed for structural events only (`structure`), and its
+  expansion state is restored client-side across swaps; a save never collapses
+  an open folder.
 - Saving is island-owned: `Ctrl+S` saves the active buffer, the command
   palette's "Save all" dispatches `we:save-all`, and the island writes every
   buffer whose text differs from what it loaded.
@@ -106,6 +109,9 @@ Light and dark are explicit (`.light` on `<html>`, persisted in localStorage).
 
 - Rendering happens on the server; the client ships no framework for the chrome.
 - The tree is lazy: only the children of expanded folders are rendered.
+- Quick-open answers from a background index of the workspace files, primed at
+  startup. The walk itself never runs on a request or async worker; while it is
+  still going the palette shows partial results and refreshes itself.
 - The editor is the only always-on island. Typing never hits the network except
   a debounced dirty flag; saving is explicit (or on blur/close).
 - Markdown preview renders off the hot path: 150–250ms trailing debounce,

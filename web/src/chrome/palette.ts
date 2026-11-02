@@ -16,6 +16,14 @@ let opener: HTMLElement | null = null;
 let activeIndex = 0;
 let generation = 0;
 
+/// Poll cadence while the server is still indexing a big workspace.
+const INDEX_RETRY_MS = 600;
+const INDEX_RETRY_MAX_MS = 4000;
+const INDEX_RETRY_LIMIT = 20;
+
+let retryTimer: number | undefined;
+let retryCount = 0;
+
 export function isPaletteOpen(): boolean {
   return Boolean(root && !root.hidden);
 }
@@ -26,6 +34,9 @@ export function openPalette(next: PaletteMode) {
 
   if (isPaletteOpen() && mode === next) {
     host.querySelector<HTMLInputElement>('#palette-input')?.focus();
+    // Reopening is also a retry: the index may have finished since.
+    retryCount = 0;
+    retryWhenIndexing();
     return;
   }
 
@@ -33,6 +44,8 @@ export function openPalette(next: PaletteMode) {
   if (!wasOpen) opener = document.activeElement as HTMLElement | null;
   mode = next;
   activeIndex = 0;
+  retryCount = 0;
+  stopRetry();
   const ticket = ++generation;
 
   root.hidden = false;
@@ -59,12 +72,46 @@ export function openPalette(next: PaletteMode) {
     activeIndex = 0;
     syncActive(false);
     host!.querySelector<HTMLInputElement>('#palette-input')?.focus();
+    retryWhenIndexing();
   })();
+}
+
+/** A huge workspace indexes in the background; ask again until it is ready. */
+function retryWhenIndexing() {
+  stopRetry();
+  if (!isPaletteOpen() || !mode) return;
+  if (!host?.querySelector('#palette-results [data-indexing]')) return;
+  if (retryCount >= INDEX_RETRY_LIMIT) return;
+
+  const delay = Math.min(INDEX_RETRY_MS * 2 ** retryCount, INDEX_RETRY_MAX_MS);
+  retryCount += 1;
+  retryTimer = window.setTimeout(() => {
+    retryTimer = undefined;
+    const input = host?.querySelector<HTMLInputElement>('#palette-input');
+    if (!isPaletteOpen() || !mode || !input) return;
+    const params = new URLSearchParams({
+      mode,
+      q: input.value,
+      results_only: '1',
+    });
+    void htmx()?.ajax('GET', `/fragments/palette?${params}`, {
+      target: '#palette-results',
+      swap: 'innerHTML',
+    });
+  }, delay);
+}
+
+function stopRetry() {
+  if (retryTimer === undefined) return;
+  window.clearTimeout(retryTimer);
+  retryTimer = undefined;
 }
 
 export function closePalette() {
   if (!isPaletteOpen() || !root || !host) return;
   generation += 1;
+  stopRetry();
+  retryCount = 0;
   root.hidden = true;
   host.innerHTML = '';
   mode = null;
@@ -212,9 +259,16 @@ function ensureRoot(): void {
     }
   });
 
+  // Typing starts a new query, so give the background index a fresh budget.
+  root.addEventListener('input', () => {
+    retryCount = 0;
+  });
+
   // htmx replaced the results list: highlight the best hit again.
   root.addEventListener('htmx:afterSwap', (event) => {
     const target = event.target as HTMLElement | null;
-    if (target && target.id === 'palette-results') resetActive();
+    if (!target || target.id !== 'palette-results') return;
+    resetActive();
+    retryWhenIndexing();
   });
 }

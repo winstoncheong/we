@@ -2,11 +2,12 @@
 //!
 //! One endpoint serves both the whole palette (input + results + footer) and
 //! just the results list, so htmx can filter without re-rendering the chrome.
-//! The file list is walked with `ignore` (gitignore-aware), cached for a few
-//! seconds, and matched with a small subsequence scorer.
+//! The file list is walked with `ignore` (gitignore-aware) by a background
+//! index thread — never on the request path — and matched with a small
+//! subsequence scorer.
 
 use std::path::{Component, Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 
 use askama::Template;
@@ -18,7 +19,10 @@ use super::render;
 use crate::state::App;
 use crate::views;
 
-/// Directories that would drown the walker (mirrors `files::SKIP`).
+/// Directories that would drown the walker: build output, VCS internals and
+/// dependency/cache stores. A workspace rooted at `$HOME` must not index
+/// `~/.cargo/registry` or `~/AppData` — that is a minute-long walk for files
+/// nobody quick-opens.
 const SKIP: &[&str] = &[
     ".git",
     "node_modules",
@@ -31,13 +35,36 @@ const SKIP: &[&str] = &[
     ".cache",
     ".idea",
     ".gradle",
+    ".cargo",
+    ".rustup",
+    ".npm",
+    ".pnpm-store",
+    ".yarn",
+    ".m2",
+    ".nuget",
+    ".stack-work",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
+    ".parcel-cache",
+    ".svelte-kit",
+    ".terraform",
+    ".vercel",
+    "AppData",
+    "Library",
 ];
 
 const MAX_FILES: usize = 250_000;
-const CACHE_TTL: Duration = Duration::from_secs(3);
 const RESULT_LIMIT: usize = 50;
 /// Files whose *basename* fits the query outrank matches spread over the path.
 const BASENAME_BONUS: i32 = 20;
+/// A cold index pauses this long so a small workspace is complete on the very
+/// first Ctrl+P. Bigger trees answer immediately and fill in behind.
+const FIRST_WAIT: Duration = Duration::from_millis(150);
+/// Stale-while-revalidate bounds, widened by how long the last walk took so a
+/// huge workspace is not re-walked on every keystroke.
+const TTL_MIN: Duration = Duration::from_secs(3);
+const TTL_MAX: Duration = Duration::from_secs(120);
 
 #[derive(Deserialize)]
 pub struct PaletteQuery {
@@ -75,6 +102,8 @@ pub struct Palette {
     pub hits: Vec<FileHit>,
     pub commands: Vec<CommandRow>,
     pub count_label: String,
+    /// The background walk has not finished; results are partial.
+    pub indexing: bool,
 }
 
 pub async fn fragment(State(app): State<Arc<App>>, Query(query): Query<PaletteQuery>) -> Response {
@@ -88,6 +117,7 @@ pub async fn fragment(State(app): State<Arc<App>>, Query(query): Query<PaletteQu
 
     let mut hits = Vec::new();
     let mut commands = Vec::new();
+    let mut indexing = false;
     let count_label;
 
     if mode == "commands" {
@@ -98,14 +128,15 @@ pub async fn fragment(State(app): State<Arc<App>>, Query(query): Query<PaletteQu
             format!("{} commands", commands.len())
         };
     } else {
-        hits = search_files(&app.root, &query.q, RESULT_LIMIT);
-        count_label = if hits.is_empty() {
-            "no matches".to_string()
-        } else if hits.len() == RESULT_LIMIT {
-            format!("{RESULT_LIMIT}+ files")
-        } else {
-            format!("{} files", hits.len())
-        };
+        // The index may need a filesystem walk; keep it off the async workers
+        // so a big workspace cannot stall the rest of the chrome.
+        let root = app.root.clone();
+        let needle = query.q.clone();
+        let found = tokio::task::spawn_blocking(move || search_files(&root, &needle, RESULT_LIMIT))
+            .await
+            .unwrap_or_else(|_| (Vec::new(), false));
+        (hits, indexing) = found;
+        count_label = file_count_label(&hits, indexing);
     }
 
     render(&Palette {
@@ -125,7 +156,25 @@ pub async fn fragment(State(app): State<Arc<App>>, Query(query): Query<PaletteQu
         hits,
         commands,
         count_label,
+        indexing,
     })
+}
+
+fn file_count_label(hits: &[FileHit], indexing: bool) -> String {
+    if indexing {
+        return if hits.is_empty() {
+            "indexing…".to_string()
+        } else {
+            format!("{} files · indexing…", hits.len())
+        };
+    }
+    if hits.is_empty() {
+        "no matches".to_string()
+    } else if hits.len() >= RESULT_LIMIT {
+        format!("{RESULT_LIMIT}+ files")
+    } else {
+        format!("{} files", hits.len())
+    }
 }
 
 fn command_rows(query: &str, view: &views::View) -> Vec<CommandRow> {
@@ -203,16 +252,51 @@ fn command_rows(query: &str, view: &views::View) -> Vec<CommandRow> {
 
 // ── file search ───────────────────────────────────────────────────────────
 
-struct Cache {
+/// The workspace file index.
+///
+/// Walking a large tree (a home directory can hold millions of entries) takes
+/// tens of seconds, so the walk runs on its own thread and never on the request
+/// path. Requests answer from whatever is indexed: a fresh small workspace is
+/// complete before the first palette even renders, a huge one fills in behind
+/// the `indexing` flag.
+struct Index {
     root: PathBuf,
-    at: Instant,
     files: Arc<Vec<String>>,
+    /// When the last completed walk finished.
+    built: Option<Instant>,
+    /// When the walk in flight started; `None` when idle.
+    started: Option<Instant>,
+    /// How long the last walk took, used to space out rebuilds.
+    took: Duration,
 }
 
-static FILES: Mutex<Option<Cache>> = Mutex::new(None);
+impl Index {
+    fn ttl(&self) -> Duration {
+        (self.took * 4).clamp(TTL_MIN, TTL_MAX)
+    }
 
-pub fn search_files(root: &Path, query: &str, limit: usize) -> Vec<FileHit> {
-    let files = workspace_files(root);
+    fn stale(&self) -> bool {
+        match self.built {
+            None => true,
+            Some(at) => at.elapsed() >= self.ttl(),
+        }
+    }
+}
+
+static INDEX: Mutex<Option<Index>> = Mutex::new(None);
+static WALKED: Condvar = Condvar::new();
+
+/// Start indexing a workspace in the background (called once at startup).
+pub fn prime(root: &Path) {
+    let root = root.to_path_buf();
+    std::thread::spawn(move || {
+        let _ = workspace_files(&root);
+    });
+}
+
+/// Ranked hits, plus whether the index is still incomplete.
+pub fn search_files(root: &Path, query: &str, limit: usize) -> (Vec<FileHit>, bool) {
+    let (files, indexing) = workspace_files(root);
     let mut scored = files
         .iter()
         .filter_map(|path| score(query, path).map(|s| (s, path)))
@@ -222,11 +306,12 @@ pub fn search_files(root: &Path, query: &str, limit: usize) -> Vec<FileHit> {
             .then_with(|| a.1.len().cmp(&b.1.len()))
             .then_with(|| a.1.cmp(b.1))
     });
-    scored
+    let hits = scored
         .into_iter()
         .take(limit)
         .map(|(_, path)| hit(path))
-        .collect()
+        .collect();
+    (hits, indexing)
 }
 
 fn hit(path: &str) -> FileHit {
@@ -244,27 +329,77 @@ fn hit(path: &str) -> FileHit {
     }
 }
 
-fn workspace_files(root: &Path) -> Arc<Vec<String>> {
-    if let Ok(guard) = FILES.lock()
-        && let Some(cache) = guard.as_ref()
-        && cache.root == root
-        && cache.at.elapsed() < CACHE_TTL
-    {
-        return cache.files.clone();
+fn workspace_files(root: &Path) -> (Arc<Vec<String>>, bool) {
+    let mut guard = INDEX.lock().unwrap_or_else(|err| err.into_inner());
+
+    // A second server in the same process (tests, embedded runs) starts clean.
+    if guard.as_ref().is_some_and(|index| index.root != root) {
+        *guard = None;
     }
-
-    let mut files = collect_files(root);
-    files.sort_by(|a, b| a.to_lowercase().cmp(&b.to_lowercase()));
-    let files = Arc::new(files);
-
-    if let Ok(mut guard) = FILES.lock() {
-        *guard = Some(Cache {
+    if guard.is_none() {
+        *guard = Some(Index {
             root: root.to_path_buf(),
-            at: Instant::now(),
-            files: files.clone(),
+            files: Arc::new(Vec::new()),
+            built: None,
+            started: None,
+            took: Duration::ZERO,
         });
     }
-    files
+
+    let stale = guard.as_ref().is_some_and(|index| index.stale());
+    if stale {
+        let index = guard.as_mut().expect("index initialised above");
+        if index.started.is_none() {
+            index.started = Some(Instant::now());
+            spawn_walk(index.root.clone());
+        }
+    }
+
+    // Cold index: let a small tree finish so the first palette is complete.
+    if let Some(started) = guard.as_ref().and_then(|index| index.started) {
+        let wait = FIRST_WAIT.saturating_sub(started.elapsed());
+        if !wait.is_zero() {
+            let (next, _) = WALKED
+                .wait_timeout(guard, wait)
+                .unwrap_or_else(|err| err.into_inner());
+            guard = next;
+        }
+    }
+
+    let index = guard.as_ref().expect("index initialised above");
+    // "Indexing" only while there has never been a complete walk; a stale
+    // rebuild in flight still answers from the previous list.
+    (index.files.clone(), index.built.is_none())
+}
+
+fn spawn_walk(root: PathBuf) {
+    let spawned = std::thread::Builder::new()
+        .name("we-index".into())
+        .spawn(move || {
+            let at = Instant::now();
+            let mut files = collect_files(&root);
+            files.sort_by(|a, b| a.to_lowercase().cmp(&b.to_lowercase()));
+            let took = at.elapsed();
+
+            let mut guard = INDEX.lock().unwrap_or_else(|err| err.into_inner());
+            if let Some(index) = guard.as_mut()
+                && index.root == root
+            {
+                index.files = Arc::new(files);
+                index.built = Some(Instant::now());
+                index.took = took;
+                index.started = None;
+            }
+            WALKED.notify_all();
+        });
+
+    if let Err(err) = spawned {
+        eprintln!("palette index: {err}");
+        let mut guard = INDEX.lock().unwrap_or_else(|err| err.into_inner());
+        if let Some(index) = guard.as_mut() {
+            index.started = None;
+        }
+    }
 }
 
 fn collect_files(root: &Path) -> Vec<String> {

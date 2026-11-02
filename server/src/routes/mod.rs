@@ -157,8 +157,9 @@ async fn events(
     use tokio_stream::StreamExt;
 
     let stream = tokio_stream::wrappers::BroadcastStream::new(app.fs.subscribe()).map(|message| {
-        // A lagged receiver still means "something changed", so never drop it.
-        let kind = message.unwrap_or_else(|_| "change".to_string());
+        // A lagged receiver still means "something changed"; we may have missed
+        // a structural event, so assume the tree moved.
+        let kind = message.unwrap_or_else(|_| crate::watcher::STRUCTURE.to_string());
         Ok::<_, Infallible>(Event::default().event("fs").data(kind))
     });
     Sse::new(stream).keep_alive(KeepAlive::default())
